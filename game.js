@@ -50,7 +50,8 @@ const CFG = {
   CHONK_SIZE_GAIN:     0.06, // size increase per chonk level
   CHONK_SPEED_PENALTY: 0.10, // animation speed multiplier penalty per level
   MAX_CHONK:           10,
-  MOVE_COOLDOWN:       180,  // ms minimum between moves at chonk 0
+  MOVE_COOLDOWN:       180,  // ms minimum between moves at chonk 0 (keyboard)
+  MOVE_COOLDOWN_TOUCH: 250,  // ms minimum between moves on touch devices
 
   // Dash
   DASH_DURATION:    1000, // ms
@@ -63,7 +64,7 @@ const CFG = {
   SPECIAL_SCORE:  15,
 
   // Progressive difficulty: obstacle speed multiplier = 1 + score/DIFF_RATE
-  DIFF_RATE:      80,
+  DIFF_RATE:      120,
 
   // World generation seed helpers
   MIN_OBS_PER_LANE:   2,
@@ -822,7 +823,8 @@ class LaneGen {
       if (this._count >= group.grass) { this._inRoad = true; this._count = 0; }
     } else if (this._inRoad && this._count < group.road) {
       const dir   = Math.random() < 0.5 ? 1 : -1;
-      const speed = rand(80, 200);
+      const speedScale = Math.min(1, Math.max(window.innerWidth, 1) / 900);
+      const speed = rand(80, 200) * speedScale;
       const obsTypes = ['car', 'car', 'car', 'bike', 'donut',
                         ...(this._groupIdx > 2 ? ['truck'] : [])];
       this.lanes[idx] = {
@@ -1056,6 +1058,7 @@ class Game {
 
     // Show D-pad on mobile
     const hasTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    this.isTouchDevice = hasTouch;
     if (hasTouch) {
       document.getElementById('touch-controls').classList.add('visible');
     }
@@ -1095,6 +1098,7 @@ class Game {
     this.deathDelay = 0;
     this.moveQueue  = null;
     this.lastMoveTime = 0;
+    this.dpadTouched = false;
     this.particles  = [];
 
     // Reset lane generator
@@ -1188,7 +1192,7 @@ class Game {
     if (this.obstacles.some(o => o.laneIdx === laneIdx)) return;
 
     const n = laneData.numObs;
-    const spacing = (this.W + 200) / n;
+    const spacing = Math.max(this.TILE * 2, (this.W + 400) / n);
     for (let i = 0; i < n; i++) {
       const obs = new Obstacle(laneIdx, laneData, this.W, this.TILE, this.score);
       // Stagger all obstacles off-screen in their travel direction's origin side
@@ -1229,7 +1233,11 @@ class Game {
     ['up','down','left','right'].forEach(dir => {
       const btn = document.getElementById(`btn-${dir}`);
       if (!btn) return;
-      const ev = () => { if (this.state === 'playing') this._queueMove(dir); };
+      const ev = (e) => {
+        e.stopPropagation();
+        this.dpadTouched = true;
+        if (this.state === 'playing') this._queueMove(dir);
+      };
       btn.addEventListener('touchstart', ev, { passive: true });
       btn.addEventListener('mousedown',  ev);
     });
@@ -1241,6 +1249,7 @@ class Game {
       ty0 = e.touches[0].clientY;
     }, { passive: true });
     document.addEventListener('touchend', e => {
+      if (this.dpadTouched) { this.dpadTouched = false; return; }
       if (this.state !== 'playing') return;
       const dx = e.changedTouches[0].clientX - tx0;
       const dy = e.changedTouches[0].clientY - ty0;
@@ -1278,7 +1287,8 @@ class Game {
     if (this.player.moving) return;
 
     const now = Date.now();
-    const cooldown = CFG.MOVE_COOLDOWN * (1 + this.chonkLevel * CFG.CHONK_SPEED_PENALTY);
+    const baseCooldown = this.isTouchDevice ? CFG.MOVE_COOLDOWN_TOUCH : CFG.MOVE_COOLDOWN;
+    const cooldown = baseCooldown * (1 + this.chonkLevel * CFG.CHONK_SPEED_PENALTY);
     if (now - this.lastMoveTime < cooldown) return;
 
     const dir = this.moveQueue;
