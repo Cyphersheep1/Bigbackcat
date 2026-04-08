@@ -1,81 +1,62 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Big Back Benny - YouTube Shorts</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #ffcc00 0%, #ff9900 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container { max-width: 900px; margin: 0 auto; padding-bottom: 120px; }
-        header { text-align: center; margin-bottom: 30px; }
-        .logo-img { max-width: 250px; width: 100%; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
-        h1 { color: white; font-size: 2.8em; margin: 10px 0; text-shadow: 2px 2px 8px rgba(0,0,0,0.4); }
-        .tagline { font-size: 1.2em; color: white; font-weight: bold; text-shadow: 1px 1px 4px rgba(0,0,0,0.3); margin: 10px 0 20px; }
-        .subscribe-btn { background: #ff6600; color: white; padding: 12px 30px; border: none; border-radius: 25px; cursor: pointer; font-size: 1em; margin: 8px; font-weight: bold; box-shadow: 0 5px 15px rgba(0,0,0,0.3); transition: all 0.3s; }
-        .subscribe-btn:hover { transform: scale(1.08); background: #ff7722; }
-        .about-section { background: rgba(255, 255, 255, 0.95); padding: 30px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); line-height: 1.8; font-size: 1.05em; color: #333; margin-bottom: 40px; border-left: 5px solid #ff6600; }
-        .about-section h2 { color: #ff6600; margin-bottom: 15px; font-size: 1.8em; }
-        .about-section p { margin-bottom: 12px; }
-        .about-section strong { color: #ff6600; }
-        h2 { color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); font-size: 1.8em; margin-bottom: 20px; }
-        .video-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
-        .video-card { background: rgba(255, 255, 255, 0.95); border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.2); transition: transform 0.3s; }
-        .video-card:hover { transform: translateY(-5px); }
-        .video-card iframe { width: 100%; height: 280px; border: none; }
-        .video-caption { padding: 12px; background: rgba(255, 102, 0, 0.1); text-align: center; font-weight: bold; color: #ff6600; }
-        .placeholder-box { background: #e0e0e0; height: 280px; display: flex; align-items: center; justify-content: center; font-size: 1.1em; color: #999; }
-        footer { text-align: center; padding: 20px; background: rgba(0, 0, 0, 0.85); color: white; position: fixed; width: 100%; bottom: 0; left: 0; font-weight: bold; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>BigBack Benny: Chonky Crossing 🐱🍔</title>
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-    <div class="container">
-        <header>
-            <img src="image%20(6).jpg" alt="Big Back Benny" class="logo-img" />
-            <h1>🐱 BIG BACK BENNY 🐱</h1>
-            <p class="tagline">The Chonkiest Meme Legend on YouTube!</p>
-            <button class="subscribe-btn" onclick="window.open('https://www.youtube.com/@BigbackBenny', '_blank')">🔔 SUBSCRIBE</button>
-            <button class="subscribe-btn" onclick="window.open('https://www.youtube.com/@BigbackBenny?sub_confirmation=1', '_blank')">📲 NOTIFICATIONS</button>
-        </header>
+  <div id="game-container">
+    <canvas id="gameCanvas"></canvas>
 
-        <section class="about-section">
-            <h2>About BigBack Benny</h2>
-
-<p>The chonkiest orange cat on the internet.  
-He eats like it’s his job — because it basically is.</p>
-
-<p>“I’m full” is not in his vocabulary.  
-One more bite is always the correct answer.</p>
-
-<p>Lazy ✓ Greedy ✓ Hilariously relatable ✓</p>
-
-<p>Welcome to the BigBack life 🍔</p>
-        </section>
-        
-        <section>
-            <h2>📹 Latest YouTube Shorts</h2>
-            <div class="video-grid">
-                <div class="video-card">
-                    <iframe src="https://www.youtube.com/embed/4UtcJvPOhKg" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-                    <div class="video-caption">Big Back Benny 🔥</div>
-                </div>
-                <div class="video-card">
-                    <div class="placeholder-box">Coming Soon 🎬</div>
-                    <div class="video-caption">Next Video</div>
-                </div>
-                <div class="video-card">
-                    <div class="placeholder-box">More Content 🎥</div>
-                    <div class="video-caption">Stay Tuned</div>
-                </div>
-            </div>
-        </section>
+    <!-- Title Screen -->
+    <div id="title-screen" class="screen">
+      <div class="title-content">
+        <h1 class="game-title">BigBack Benny</h1>
+        <h2 class="game-subtitle">Chonky Crossing 🐱🍔</h2>
+        <canvas id="title-canvas" width="180" height="180"></canvas>
+        <p class="tagline">The fattest cat on the blockchain</p>
+        <button id="start-btn" class="btn btn-primary">▶ Start Game</button>
+        <div class="instructions">
+          <p>⬆⬇⬅➡ Arrow Keys or WASD to move</p>
+          <p>Mobile: Swipe or use the D-Pad</p>
+        </div>
+      </div>
     </div>
-    
-    <footer>© 2026 Big Back Benny. All rights reserved. 🐱</footer>
+
+    <!-- Game Over Screen -->
+    <div id="gameover-screen" class="screen hidden">
+      <div class="gameover-content">
+        <canvas id="squish-canvas" width="220" height="90"></canvas>
+        <h2 class="gameover-title">"I'm still hungry..."</h2>
+        <div class="score-box">
+          <p>Score: <span id="final-score" class="score-value">0</span></p>
+          <p>Max Chonk: <span id="final-chonk" class="chonk-value">0</span></p>
+          <p id="highscore-line">Best: <span id="best-score" class="score-value">0</span></p>
+        </div>
+        <div class="gameover-btns">
+          <button id="restart-btn" class="btn btn-primary">🔄 Play Again</button>
+          <button id="share-btn" class="btn btn-share">📤 Share Score</button>
+        </div>
+        <p id="share-notice" class="share-notice hidden">📋 Copied to clipboard!</p>
+      </div>
+    </div>
+
+    <!-- Touch / D-Pad Controls -->
+    <div id="touch-controls">
+      <div class="dpad">
+        <button class="dpad-btn dpad-up" id="btn-up">▲</button>
+        <div class="dpad-row">
+          <button class="dpad-btn dpad-left" id="btn-left">◀</button>
+          <div class="dpad-center"></div>
+          <button class="dpad-btn dpad-right" id="btn-right">▶</button>
+        </div>
+        <button class="dpad-btn dpad-down" id="btn-down">▼</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./game.js"></script>
 </body>
 </html>
