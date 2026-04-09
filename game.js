@@ -1,5 +1,5 @@
 /* ============================================================
-   BigBack Benny: Chonky Crossing — Game Engine
+   Big Back Crossing — Game Engine
    Pure HTML5 Canvas + Vanilla JS. Zero external dependencies.
    ============================================================ */
 
@@ -21,10 +21,10 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 // BRANDING — Edit these to customize / rebrand the game
 // ============================================================
 const BRAND = {
-  GAME_TITLE:     'BigBack Benny: Chonky Crossing',
+  GAME_TITLE:     'Big Back Crossing',
   CHARACTER_NAME: 'BigBack Benny',
   SHARE_URL:      'bigbackcat.fun',
-  SHARE_MESSAGE:  (score) => `I scored ${score} points on BigBack Benny: Chonky Crossing! 🐱🍔 Play at bigbackcat.fun`,
+  SHARE_MESSAGE:  (score) => `I scored ${score} points on Big Back Crossing! 🐱🍔 Play at bigbackcat.fun`,
   BG_COLOR:       '#2d5a1b',   // grass color
   ROAD_COLOR:     '#4a4a4a',   // road color
 };
@@ -82,6 +82,16 @@ const CFG = {
 };
 
 // ============================================================
+// CHONK MILESTONES — popup callouts at key chonk levels
+// ============================================================
+const CHONK_MILESTONES = {
+  3:  'Oh, you hungry! 🍔',
+  5:  'You tryna be big back! 💪',
+  7:  'Keep eating, you got this! 🔥',
+  10: 'BIG BACK IS IN THE HOUSE! 👑🐱',
+};
+
+// ============================================================
 // UTILITY HELPERS
 // ============================================================
 function rand(min, max) { return min + Math.random() * (max - min); }
@@ -122,6 +132,23 @@ class AudioEngine {
   resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); }
 
   hop()       { this._beep(200, 'square', 0.08, 0.15); }
+  chomp()     {
+    // Big exaggerated cartoon "NOM" — layered low-frequency descending tones
+    this._beep(180, 'sine',     0.06, 0.35);
+    this._beep(120, 'sawtooth', 0.12, 0.40, 0.04);
+    this._beep(70,  'sine',     0.25, 0.45, 0.10);
+  }
+  specialChomp() {
+    // Over-the-top dramatic prize fanfare — ascending jingle
+    [330, 415, 494, 659, 880, 1047].forEach((f, i) =>
+      this._beep(f, 'sine', 0.13, 0.28, i * 0.07));
+  }
+  sadTrombone() {
+    // "Wah wah waaah" sad trombone — three descending "womp" notes
+    this._beep(311, 'sawtooth', 0.18, 0.35, 0.00);
+    this._beep(233, 'sawtooth', 0.22, 0.35, 0.20);
+    this._beep(155, 'sawtooth', 0.50, 0.35, 0.42);
+  }
   collect()   {
     this._beep(440, 'sine', 0.1, 0.2);
     this._beep(660, 'sine', 0.1, 0.2, 0.08);
@@ -1108,6 +1135,9 @@ class Game {
     this.dpadTouched = false;
     this.lastDpadTime = 0;
     this.particles  = [];
+    this.milestoneText  = '';
+    this.milestoneTimer = 0;
+    this.shownMilestones = new Set();
 
     // Reset lane generator
     this.laneGen      = new LaneGen();
@@ -1143,7 +1173,7 @@ class Game {
     this.state = 'dead';
     this.player.state = 'dead';
     this.player.deadT = 0;
-    this.audio.squish();
+    this.audio.sadTrombone();
     this._spawnDeathParticles();
     this.deathDelay = 0;
 
@@ -1462,10 +1492,10 @@ class Game {
 
     if (col.type === 'special') {
       this.dashAvailable = true;
-      this.audio.special();
+      this.audio.specialChomp();
       this._activateDash(); // auto-trigger
     } else {
-      this.audio.collect();
+      this.audio.chomp();
     }
 
     this._spawnCollectParticles(col.px, col.py);
@@ -1473,6 +1503,14 @@ class Game {
     // Chonk mechanic
     if (this.chonkLevel < CFG.MAX_CHONK) {
       this.chonkLevel++;
+    }
+
+    // Chonk milestone callout
+    const milestone = CHONK_MILESTONES[this.chonkLevel];
+    if (milestone && !this.shownMilestones.has(this.chonkLevel)) {
+      this.shownMilestones.add(this.chonkLevel);
+      this.milestoneText  = milestone;
+      this.milestoneTimer = 2.5;
     }
   }
 
@@ -1499,6 +1537,11 @@ class Game {
     if (this.dashing) {
       this.dashTimer -= dt * 1000;
       if (this.dashTimer <= 0) { this.dashing = false; this.dashTimer = 0; }
+    }
+
+    // Milestone callout timer
+    if (this.milestoneTimer > 0) {
+      this.milestoneTimer = Math.max(0, this.milestoneTimer - dt);
     }
 
     // Process pending move
@@ -1695,6 +1738,51 @@ class Game {
       ctx.textAlign = 'right';
       ctx.fillStyle = `hsl(${(this.time * 60) % 360}, 100%, 70%)`;
       ctx.fillText('⚡ DASH READY!', this.W - pad, chonkY + 38);
+    }
+
+    // Chonk milestone callout popup
+    if (this.milestoneTimer > 0 && this.milestoneText) {
+      const TOTAL   = 2.5;   // seconds (must match milestoneTimer initial value)
+      const FADE_IN = 0.3;   // seconds for bounce-in phase (timer counts down, so near TOTAL)
+      const FADE_OUT = 0.5;  // seconds for fade-out at end (timer near 0)
+
+      const elapsed = TOTAL - this.milestoneTimer; // time since popup appeared
+      const remaining = this.milestoneTimer;
+
+      // Alpha: fade in over first FADE_IN s, fade out over last FADE_OUT s
+      let alpha = 1;
+      if (elapsed < FADE_IN)   alpha = elapsed / FADE_IN;
+      if (remaining < FADE_OUT) alpha = remaining / FADE_OUT;
+
+      // Scale: bounce-in effect — overshoot then settle
+      let scale = 1;
+      if (elapsed < FADE_IN) {
+        const t = elapsed / FADE_IN;
+        // simple spring: overshoot to 1.25 at t=0.6, then settle to 1.0
+        scale = t < 0.6
+          ? 1.25 * (t / 0.6)
+          : 1.25 - 0.25 * ((t - 0.6) / 0.4);
+      }
+
+      ctx.save();
+      ctx.globalAlpha = clamp(alpha, 0, 1);
+      ctx.textAlign   = 'center';
+      ctx.textBaseline = 'middle';
+
+      const fontSize = Math.min(this.W * 0.065, 32);
+      ctx.font = `bold ${fontSize}px sans-serif`;
+
+      ctx.translate(this.W / 2, this.H * 0.38);
+      ctx.scale(scale, scale);
+
+      // Shadow / stroke for readability
+      ctx.lineWidth   = 6;
+      ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+      ctx.strokeText(this.milestoneText, 0, 0);
+      ctx.fillStyle   = '#fff700';
+      ctx.fillText(this.milestoneText, 0, 0);
+
+      ctx.restore();
     }
 
     ctx.restore();
