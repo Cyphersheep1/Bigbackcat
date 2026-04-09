@@ -67,8 +67,14 @@ const CFG = {
   DIFF_RATE:      120,
 
   // World generation seed helpers
-  MIN_OBS_PER_LANE:   2,
-  MAX_OBS_PER_LANE:   5,
+  MIN_OBS_PER_LANE:       2,
+  MAX_OBS_PER_LANE:       5,
+  MOBILE_MAX_OBS_PER_LANE: 3,   // cap on narrow screens (<600px wide)
+  MOBILE_WIDTH_THRESHOLD: 600,  // px — screen width below which mobile caps apply
+
+  // Touch / swipe input guards
+  DPAD_SWIPE_DEBOUNCE_MS: 400,  // ms — ignore swipe if D-pad was tapped recently
+  MIN_SWIPE_DISTANCE:     40,   // px — minimum travel to register as a swipe
 
   // During a dash, skip the move cooldown by this multiplier
   // (set high so Benny can move without waiting for chonk cooldown)
@@ -1006,6 +1012,7 @@ class Game {
     this.keys    = {};
     this.moveQueue = null;
     this.lastMoveTime = 0;
+    this.lastDpadTime = 0;
 
     // Timers
     this.time    = 0;
@@ -1099,6 +1106,7 @@ class Game {
     this.moveQueue  = null;
     this.lastMoveTime = 0;
     this.dpadTouched = false;
+    this.lastDpadTime = 0;
     this.particles  = [];
 
     // Reset lane generator
@@ -1191,7 +1199,7 @@ class Game {
     // Don't double-spawn
     if (this.obstacles.some(o => o.laneIdx === laneIdx)) return;
 
-    const n = laneData.numObs;
+    const n = Math.min(laneData.numObs, this.W < CFG.MOBILE_WIDTH_THRESHOLD ? CFG.MOBILE_MAX_OBS_PER_LANE : CFG.MAX_OBS_PER_LANE);
     const spacing = Math.max(this.TILE * 2, (this.W + 400) / n);
     for (let i = 0; i < n; i++) {
       const obs = new Obstacle(laneIdx, laneData, this.W, this.TILE, this.score);
@@ -1236,6 +1244,7 @@ class Game {
       const ev = (e) => {
         e.stopPropagation();
         this.dpadTouched = true;
+        this.lastDpadTime = Date.now();
         if (this.state === 'playing') this._queueMove(dir);
       };
       btn.addEventListener('touchstart', ev, { passive: true });
@@ -1250,11 +1259,12 @@ class Game {
     }, { passive: true });
     document.addEventListener('touchend', e => {
       if (this.dpadTouched) { this.dpadTouched = false; return; }
+      if (Date.now() - this.lastDpadTime < CFG.DPAD_SWIPE_DEBOUNCE_MS) return;
       if (this.state !== 'playing') return;
       const dx = e.changedTouches[0].clientX - tx0;
       const dy = e.changedTouches[0].clientY - ty0;
       const adx = Math.abs(dx), ady = Math.abs(dy);
-      if (Math.max(adx, ady) < 20) return;
+      if (Math.max(adx, ady) < CFG.MIN_SWIPE_DISTANCE) return;
       if (adx > ady) this._queueMove(dx > 0 ? 'right' : 'left');
       else           this._queueMove(dy > 0 ? 'down'  : 'up');
     }, { passive: true });
@@ -1279,6 +1289,7 @@ class Game {
   }
 
   _queueMove(dir) {
+    if (this.player.moving) return;
     this.moveQueue = dir;
   }
 
@@ -1323,6 +1334,9 @@ class Game {
     // Generate more world ahead
     this._generateWorld();
     this._pruneWorld();
+
+    // Safety net: clear any stale queued input
+    this.moveQueue = null;
   }
 
   _activateDash() {
