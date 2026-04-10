@@ -178,19 +178,19 @@ function drawBenny(ctx, cx, cy, size, chonkLevel, state, animT) {
   const chonkFactor = 1 + chonkLevel * 0.07;
   const bw = size * chonkFactor;  // body width
   const bh = size * (0.75 + chonkLevel * 0.04); // body height
-  const bounce = (state === 'walking') ? Math.sin(animT * 12) * 3 : 0;
+  const bounce = (state === 'walking') ? Math.sin(animT * 12) * 1.5 : 0;
   const squishX = (state === 'dead') ? 1 + animT * 1.5 : 1;
   const squishY = (state === 'dead') ? Math.max(0.08, 1 - animT * 0.92) : 1;
 
-  ctx.translate(cx, cy + bounce);
+  ctx.translate(cx, cy + bh * 0.15 + bounce);
   ctx.scale(squishX, squishY);
 
   // ── Shadow ──
   ctx.save();
   ctx.scale(1, 0.3);
   ctx.beginPath();
-  ctx.ellipse(0, bh * 0.55, bw * 0.6, bw * 0.25, 0, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.ellipse(0, bh * 0.55, bw * 0.65, bw * 0.25, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.fill();
   ctx.restore();
 
@@ -272,9 +272,13 @@ function drawBenny(ctx, cx, cy, size, chonkLevel, state, animT) {
 
   // ── Eyes ──
   const eyeState = (state === 'dead') ? 'x' : 'normal';
+  const eyeScale = Math.min(1, 0.85 + chonkLevel * 0.015); // caps eye growth at high chonk
+  const eyeWhiteR = headR * 0.22 * eyeScale;
+  const eyePupilR = headR * 0.12 * eyeScale;
+  const eyeShineR = headR * 0.045 * eyeScale;
   [[-headR * 0.4, 0], [headR * 0.4, 0]].forEach(([ex, ey]) => {
     ctx.beginPath();
-    ctx.arc(ex, headY + ey, headR * 0.22, 0, Math.PI * 2);
+    ctx.arc(ex, headY + ey, eyeWhiteR, 0, Math.PI * 2);
     ctx.fillStyle = '#fff';
     ctx.fill();
     if (eyeState === 'x') {
@@ -289,13 +293,14 @@ function drawBenny(ctx, cx, cy, size, chonkLevel, state, animT) {
       ctx.stroke();
       ctx.restore();
     } else {
+      // Pupil - keep centered with minimal offset
       ctx.beginPath();
-      ctx.arc(ex + headR * 0.04, headY, headR * 0.13, 0, Math.PI * 2);
+      ctx.arc(ex + headR * 0.02, headY - headR * 0.01, eyePupilR, 0, Math.PI * 2);
       ctx.fillStyle = '#222';
       ctx.fill();
-      // shine
+      // shine - stay relative to pupil
       ctx.beginPath();
-      ctx.arc(ex + headR * 0.06, headY - headR * 0.06, headR * 0.05, 0, Math.PI * 2);
+      ctx.arc(ex + headR * 0.04, headY - headR * 0.04, eyeShineR, 0, Math.PI * 2);
       ctx.fillStyle = '#fff';
       ctx.fill();
     }
@@ -1121,6 +1126,13 @@ class Game {
   startGame() {
     this.audio.resume();
 
+    // Unlock speech synthesis for mobile (must be called from user gesture)
+    if (window.speechSynthesis) {
+      const unlock = new SpeechSynthesisUtterance('');
+      unlock.volume = 0;
+      window.speechSynthesis.speak(unlock);
+    }
+
     this.state      = 'playing';
     this.score      = 0;
     this.chonkLevel = 0;
@@ -1511,6 +1523,17 @@ class Game {
       this.shownMilestones.add(this.chonkLevel);
       this.milestoneText  = milestone;
       this.milestoneTimer = 2.5;
+
+      // Speak it out loud (strip emoji for cleaner TTS)
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+        const spokenMsg = milestone.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}]/gu, '').trim();
+        const utter = new SpeechSynthesisUtterance(spokenMsg);
+        utter.rate   = 1.1;
+        utter.pitch  = 0.8; // deeper voice for comedy
+        utter.volume = 1.0;
+        window.speechSynthesis.speak(utter);
+      }
     }
   }
 
