@@ -111,11 +111,54 @@ class AudioEngine {
     } catch (e) {
       this.ctx = null;
     }
+    this.buffers = {};  // cache for decoded AudioBuffer objects
+  }
+
+  // Load a sound file and store it in the buffer cache under `name`.
+  async loadSound(name, url) {
+    if (!this.ctx) return;
+    const res  = await fetch(url);
+    const data = await res.arrayBuffer();
+    this.buffers[name] = await this.ctx.decodeAudioData(data);
+  }
+
+  // Play a cached buffer by name.
+  _playBuffer(name, vol = 0.5) {
+    if (!this.ctx || !this.buffers[name]) return;
+    try {
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+      const source = this.ctx.createBufferSource();
+      const gain   = this.ctx.createGain();
+      source.buffer = this.buffers[name];
+      gain.gain.value = vol;
+      source.connect(gain);
+      gain.connect(this.ctx.destination);
+      source.start(0);
+    } catch (e) { /* silent fail */ }
+  }
+
+  // Attempt to load all custom sound files from ./sounds/.
+  // Each load is wrapped in try/catch so missing files are silently ignored.
+  async loadAllSounds() {
+    const sounds = [
+      ['hop',           './sounds/hop.mp3'],
+      ['chomp',         './sounds/chomp.mp3'],
+      ['special-chomp', './sounds/special-chomp.mp3'],
+      ['sad-trombone',  './sounds/sad-trombone.mp3'],
+      ['collect',       './sounds/collect.mp3'],
+      ['special',       './sounds/special.mp3'],
+      ['squish',        './sounds/squish.mp3'],
+      ['dash',          './sounds/dash.mp3'],
+    ];
+    for (const [name, url] of sounds) {
+      try { await this.loadSound(name, url); } catch (e) { /* file not present — use synth fallback */ }
+    }
   }
 
   _beep(freq, type, duration, vol, delay = 0) {
     if (!this.ctx) return;
     try {
+      if (this.ctx.state === 'suspended') this.ctx.resume();
       const osc  = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       osc.connect(gain);
@@ -131,39 +174,49 @@ class AudioEngine {
 
   resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); }
 
-  hop()       { this._beep(200, 'square', 0.08, 0.15); }
+  hop()       {
+    if (this.buffers['hop']) { this._playBuffer('hop', 0.5); return; }
+    this._beep(200, 'square', 0.08, 0.15);
+  }
   chomp()     {
+    if (this.buffers['chomp']) { this._playBuffer('chomp', 0.5); return; }
     // Big exaggerated cartoon "NOM" — layered low-frequency descending tones
     this._beep(180, 'sine',     0.06, 0.35);
     this._beep(120, 'sawtooth', 0.12, 0.40, 0.04);
     this._beep(70,  'sine',     0.25, 0.45, 0.10);
   }
   specialChomp() {
+    if (this.buffers['special-chomp']) { this._playBuffer('special-chomp', 0.5); return; }
     // Over-the-top dramatic prize fanfare — ascending jingle
     [330, 415, 494, 659, 880, 1047].forEach((f, i) =>
       this._beep(f, 'sine', 0.13, 0.28, i * 0.07));
   }
   sadTrombone() {
+    if (this.buffers['sad-trombone']) { this._playBuffer('sad-trombone', 0.5); return; }
     // "Wah wah waaah" sad trombone — three descending "womp" notes
     this._beep(311, 'sawtooth', 0.18, 0.35, 0.00);
     this._beep(233, 'sawtooth', 0.22, 0.35, 0.20);
     this._beep(155, 'sawtooth', 0.50, 0.35, 0.42);
   }
   collect()   {
+    if (this.buffers['collect']) { this._playBuffer('collect', 0.5); return; }
     this._beep(440, 'sine', 0.1, 0.2);
     this._beep(660, 'sine', 0.1, 0.2, 0.08);
     this._beep(880, 'sine', 0.15, 0.2, 0.16);
   }
   special()   {
+    if (this.buffers['special']) { this._playBuffer('special', 0.5); return; }
     [440, 550, 660, 880, 1100].forEach((f, i) =>
       this._beep(f, 'sine', 0.12, 0.25, i * 0.07));
   }
   squish()    {
+    if (this.buffers['squish']) { this._playBuffer('squish', 0.5); return; }
     this._beep(300, 'sawtooth', 0.05, 0.3);
     this._beep(150, 'sawtooth', 0.15, 0.3, 0.05);
     this._beep(80,  'sawtooth', 0.4,  0.3, 0.10);
   }
   dash()      {
+    if (this.buffers['dash']) { this._playBuffer('dash', 0.5); return; }
     [880, 1100, 1320].forEach((f, i) =>
       this._beep(f, 'square', 0.08, 0.15, i * 0.04));
   }
@@ -1010,6 +1063,7 @@ class Game {
     this.canvas  = document.getElementById('gameCanvas');
     this.ctx     = this.canvas.getContext('2d');
     this.audio   = new AudioEngine();
+    this.audio.loadAllSounds().catch(() => {}); // fire-and-forget; synth fallback used until files load
     this.laneGen = new LaneGen();
 
     this.state     = 'title';  // title | playing | dead
